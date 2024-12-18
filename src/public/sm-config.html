@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Talker - Configuración de Speechmatics</title>
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@5.x/css/materialdesignicons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+</head>
+<body>
+    <div id="app">
+        <v-app>
+            <v-app-bar app color="primary" dark>
+                <v-toolbar-title>Talker</v-toolbar-title>
+                <v-spacer></v-spacer>
+                <v-btn text href="/config.html">
+                    <v-icon left>mdi-cog</v-icon>
+                    Configuración Windows TTS
+                </v-btn>
+                <v-btn text href="/sm-config.html" class="mx-2">
+                    <v-icon left>mdi-cloud</v-icon>
+                    Configuración Speechmatics
+                </v-btn>
+                <v-btn text href="/api-docs" target="_blank">
+                    <v-icon left>mdi-api</v-icon>
+                    API Docs
+                </v-btn>
+                <v-btn icon @click="toggleTheme">
+                    <v-icon>{{ theme === 'light' ? 'mdi-weather-night' : 'mdi-weather-sunny' }}</v-icon>
+                </v-btn>
+            </v-app-bar>
+
+            <v-main>
+                <v-container>
+                    <v-card class="mx-auto" max-width="800">
+                        <v-card-title>Configuración de Speechmatics</v-card-title>
+                        <v-card-text>
+                            <v-form @submit.prevent="saveConfig">
+                                <v-text-field
+                                    v-model="apiKey"
+                                    label="API Key de Speechmatics"
+                                    :append-icon="showApiKey ? 'mdi-eye' : 'mdi-eye-off'"
+                                    :type="showApiKey ? 'text' : 'password'"
+                                    @click:append="showApiKey = !showApiKey"
+                                    outlined
+                                ></v-text-field>
+
+                                <v-btn
+                                    color="primary"
+                                    @click="updateApiKey"
+                                    :loading="savingApiKey"
+                                    class="mb-4"
+                                >
+                                    Actualizar API Key
+                                </v-btn>
+
+                                <v-divider class="my-4"></v-divider>
+
+                                <v-select
+                                    v-model="config.defaultSettings.language"
+                                    :items="languages"
+                                    label="Idioma por defecto"
+                                    outlined
+                                ></v-select>
+
+                                <v-select
+                                    v-model="config.defaultSettings.operatingPoint"
+                                    :items="operatingPoints"
+                                    label="Punto de operación"
+                                    outlined
+                                ></v-select>
+
+                                <v-switch
+                                    v-model="config.defaultSettings.diarization"
+                                    label="Habilitar diarización"
+                                ></v-switch>
+
+                                <v-expand-transition>
+                                    <div v-if="config.defaultSettings.diarization">
+                                        <v-switch
+                                            v-model="config.defaultSettings.speakerDiarization.enableSpeakerDiarization"
+                                            label="Habilitar diarización de hablantes"
+                                        ></v-switch>
+
+                                        <v-slider
+                                            v-if="config.defaultSettings.speakerDiarization.enableSpeakerDiarization"
+                                            v-model="config.defaultSettings.speakerDiarization.maxSpeakers"
+                                            label="Número máximo de hablantes"
+                                            min="1"
+                                            max="10"
+                                            thumb-label
+                                            ticks
+                                        ></v-slider>
+                                    </div>
+                                </v-expand-transition>
+
+                                <v-btn
+                                    color="primary"
+                                    type="submit"
+                                    :loading="saving"
+                                    class="mt-4"
+                                >
+                                    Guardar configuración
+                                </v-btn>
+                            </v-form>
+
+                            <v-divider class="my-4"></v-divider>
+
+                            <v-form @submit.prevent="testTextToSpeech">
+                                <v-textarea
+                                    v-model="testText"
+                                    label="Texto a procesar"
+                                    rows="3"
+                                    outlined
+                                ></v-textarea>
+
+                                <v-row>
+                                    <v-col>
+                                        <v-btn
+                                            color="primary"
+                                            type="submit"
+                                            :loading="testing"
+                                            :disabled="!testText"
+                                            class="mr-4"
+                                        >
+                                            <v-icon left>mdi-play</v-icon>
+                                            Procesar
+                                        </v-btn>
+                                    </v-col>
+                                </v-row>
+                            </v-form>
+                        </v-card-text>
+                    </v-card>
+                </v-container>
+            </v-main>
+
+            <v-snackbar
+                v-model="snackbar.show"
+                :color="snackbar.color"
+                :timeout="3000"
+            >
+                {{ snackbar.text }}
+                <template v-slot:action="{ attrs }">
+                    <v-btn
+                        text
+                        v-bind="attrs"
+                        @click="snackbar.show = false"
+                    >
+                        Cerrar
+                    </v-btn>
+                </template>
+            </v-snackbar>
+        </v-app>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+    <script>
+        new Vue({
+            el: '#app',
+            vuetify: new Vuetify({
+                theme: {
+                    dark: localStorage.getItem('theme') === 'dark'
+                }
+            }),
+            data: () => ({
+                theme: localStorage.getItem('theme') || 'light',
+                saving: false,
+                savingApiKey: false,
+                testing: false,
+                testText: '',
+                apiKey: '',
+                showApiKey: false,
+                config: {
+                    defaultSettings: {
+                        language: 'en',
+                        operatingPoint: 'standard',
+                        diarization: false,
+                        speakerDiarization: {
+                            enableSpeakerDiarization: false,
+                            maxSpeakers: 2
+                        }
+                    }
+                },
+                languages: [
+                    { text: 'English', value: 'en' },
+                    { text: 'Spanish', value: 'es' },
+                    { text: 'French', value: 'fr' },
+                    { text: 'German', value: 'de' }
+                ],
+                operatingPoints: [
+                    { text: 'Standard', value: 'standard' },
+                    { text: 'Enhanced', value: 'enhanced' }
+                ],
+                snackbar: {
+                    show: false,
+                    text: '',
+                    color: 'success'
+                }
+            }),
+            mounted() {
+                this.loadConfig();
+            },
+            methods: {
+                toggleTheme() {
+                    this.theme = this.theme === 'light' ? 'dark' : 'light';
+                    localStorage.setItem('theme', this.theme);
+                    this.$vuetify.theme.dark = this.theme === 'dark';
+                },
+                async loadConfig() {
+                    try {
+                        const response = await fetch('/api/sm/config');
+                        const data = await response.json();
+                        this.config = data.config;
+                    } catch (error) {
+                        console.error('Error al cargar la configuración:', error);
+                        this.showSnackbar('Error al cargar la configuración', 'error');
+                    }
+                },
+                async saveConfig() {
+                    this.saving = true;
+                    try {
+                        const response = await fetch('/api/sm/config', {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                defaultSettings: this.config.defaultSettings
+                            })
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Error al guardar la configuración');
+                        }
+                        
+                        this.showSnackbar('Configuración guardada exitosamente');
+                    } catch (error) {
+                        console.error('Error:', error);
+                        this.showSnackbar('Error al guardar la configuración', 'error');
+                    }
+                    this.saving = false;
+                },
+                async testTextToSpeech() {
+                    if (!this.testText) return;
+                    
+                    this.testing = true;
+                    try {
+                        const response = await fetch('/api/sm/test', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                text: this.testText,
+                                ...this.config.defaultSettings
+                            })
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Error al procesar el texto');
+                        }
+
+                        const data = await response.json();
+                        this.showSnackbar('Procesamiento iniciado. Job ID: ' + data.jobId);
+                        
+                        // Comenzar a monitorear el estado
+                        this.monitorJobStatus(data.jobId);
+                    } catch (error) {
+                        console.error('Error:', error);
+                        this.showSnackbar('Error al procesar el texto', 'error');
+                        this.testing = false;
+                    }
+                },
+                async monitorJobStatus(jobId) {
+                    try {
+                        const response = await fetch(`/api/sm/jobs/${jobId}`);
+                        if (!response.ok) {
+                            throw new Error('Error al obtener estado');
+                        }
+
+                        const data = await response.json();
+                        if (data.status === 'done') {
+                            this.testing = false;
+                            this.showSnackbar('Procesamiento completado', 'success');
+                        } else if (data.status === 'failed') {
+                            this.testing = false;
+                            this.showSnackbar('Error en el procesamiento', 'error');
+                        } else {
+                            // Continuar monitoreando
+                            setTimeout(() => this.monitorJobStatus(jobId), 2000);
+                        }
+                    } catch (error) {
+                        console.error('Error al monitorear estado:', error);
+                        this.testing = false;
+                        this.showSnackbar('Error al monitorear el estado', 'error');
+                    }
+                },
+                async updateApiKey() {
+                    if (!this.apiKey) {
+                        this.showSnackbar('La API Key es requerida', 'error');
+                        return;
+                    }
+                    
+                    this.savingApiKey = true;
+                    try {
+                        const response = await fetch('/api/sm/config/apikey', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                apiKey: this.apiKey
+                            })
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Error al actualizar la API Key');
+                        }
+                        
+                        this.showSnackbar('API Key actualizada exitosamente');
+                        this.apiKey = ''; // Limpiar el campo por seguridad
+                    } catch (error) {
+                        console.error('Error:', error);
+                        this.showSnackbar('Error al actualizar la API Key', 'error');
+                    }
+                    this.savingApiKey = false;
+                },
+                showSnackbar(text, color = 'success') {
+                    this.snackbar.text = text;
+                    this.snackbar.color = color;
+                    this.snackbar.show = true;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

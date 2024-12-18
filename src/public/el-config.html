@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ElevenLabs Config - Talker</title>
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@5.x/css/materialdesignicons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+</head>
+<body>
+    <div id="app">
+        <v-app>
+            <v-app-bar app color="primary" dark>
+                <v-toolbar-title>Talker</v-toolbar-title>
+                <v-spacer></v-spacer>
+                <v-btn text href="/config.html">
+                    Windows TTS
+                </v-btn>
+                <v-btn text href="/el-config.html">
+                    ElevenLabs
+                </v-btn>
+                <v-btn text href="/api-docs">
+                    API Docs
+                </v-btn>
+                <v-btn icon @click="toggleTheme">
+                    <v-icon>{{ theme === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
+                </v-btn>
+            </v-app-bar>
+
+            <v-main>
+                <v-container>
+                    <v-card class="mx-auto" max-width="800">
+                        <v-card-title>Configuración de ElevenLabs</v-card-title>
+                        <v-card-text>
+                            <v-form @submit.prevent="saveConfig">
+                                <v-text-field
+                                    v-model="apiKey"
+                                    label="API Key de ElevenLabs"
+                                    :append-icon="showApiKey ? 'mdi-eye' : 'mdi-eye-off'"
+                                    :type="showApiKey ? 'text' : 'password'"
+                                    @click:append="showApiKey = !showApiKey"
+                                    outlined
+                                ></v-text-field>
+
+                                <v-btn
+                                    color="primary"
+                                    @click="updateApiKey"
+                                    :loading="savingApiKey"
+                                    class="mb-4"
+                                >
+                                    Actualizar API Key
+                                </v-btn>
+
+                                <v-divider class="my-4"></v-divider>
+
+                                <v-select
+                                    v-model="config.defaultSettings.voiceId"
+                                    :items="voices"
+                                    item-text="name"
+                                    item-value="voice_id"
+                                    label="Voz"
+                                    outlined
+                                ></v-select>
+
+                                <v-select
+                                    v-model="config.defaultSettings.model"
+                                    :items="models"
+                                    label="Modelo"
+                                    outlined
+                                ></v-select>
+
+                                <v-slider
+                                    v-model="config.defaultSettings.stability"
+                                    label="Estabilidad"
+                                    min="0"
+                                    max="1"
+                                    step="0.1"
+                                    thumb-label
+                                ></v-slider>
+
+                                <v-slider
+                                    v-model="config.defaultSettings.similarityBoost"
+                                    label="Similitud de Voz"
+                                    min="0"
+                                    max="1"
+                                    step="0.1"
+                                    thumb-label
+                                ></v-slider>
+
+                                <v-slider
+                                    v-model="config.defaultSettings.style"
+                                    label="Estilo"
+                                    min="0"
+                                    max="1"
+                                    step="0.1"
+                                    thumb-label
+                                ></v-slider>
+
+                                <v-switch
+                                    v-model="config.defaultSettings.speakerBoost"
+                                    label="Mejora de Hablante"
+                                ></v-switch>
+
+                                <v-select
+                                    v-model="config.defaultSettings.optimizeStreamingLatency"
+                                    :items="latencyOptions"
+                                    label="Optimización de Latencia"
+                                    outlined
+                                ></v-select>
+
+                                <v-btn
+                                    color="primary"
+                                    type="submit"
+                                    :loading="saving"
+                                    class="mt-4"
+                                >
+                                    Guardar Configuración
+                                </v-btn>
+                            </v-form>
+
+                            <v-divider class="my-4"></v-divider>
+
+                            <v-card-title>Prueba de Voz</v-card-title>
+                            <v-textarea
+                                v-model="testText"
+                                label="Texto para prueba"
+                                outlined
+                            ></v-textarea>
+
+                            <v-btn
+                                color="success"
+                                @click="testVoice"
+                                :loading="testing"
+                                class="mb-4"
+                            >
+                                Probar Voz
+                            </v-btn>
+                        </v-card-text>
+                    </v-card>
+                </v-container>
+            </v-main>
+
+            <v-snackbar v-model="snackbar.show" :color="snackbar.color">
+                {{ snackbar.text }}
+                <template v-slot:action="{ attrs }">
+                    <v-btn text v-bind="attrs" @click="snackbar.show = false">
+                        Cerrar
+                    </v-btn>
+                </template>
+            </v-snackbar>
+        </v-app>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+    <script>
+        new Vue({
+            el: '#app',
+            vuetify: new Vuetify({
+                theme: {
+                    dark: localStorage.getItem('theme') === 'dark'
+                }
+            }),
+            data: () => ({
+                theme: localStorage.getItem('theme') || 'light',
+                saving: false,
+                savingApiKey: false,
+                testing: false,
+                testText: '',
+                apiKey: '',
+                showApiKey: false,
+                voices: [],
+                models: [
+                    'eleven_monolingual_v1',
+                    'eleven_multilingual_v1'
+                ],
+                latencyOptions: [
+                    { text: 'Sin optimización', value: 0 },
+                    { text: 'Nivel 1', value: 1 },
+                    { text: 'Nivel 2', value: 2 },
+                    { text: 'Nivel 3', value: 3 },
+                    { text: 'Nivel 4', value: 4 }
+                ],
+                config: {
+                    defaultSettings: {
+                        voiceId: '',
+                        model: 'eleven_multilingual_v1',
+                        stability: 0.5,
+                        similarityBoost: 0.75,
+                        style: 0,
+                        speakerBoost: true,
+                        optimizeStreamingLatency: 0
+                    }
+                },
+                snackbar: {
+                    show: false,
+                    text: '',
+                    color: 'success'
+                }
+            }),
+            mounted() {
+                this.loadConfig();
+                this.loadVoices();
+            },
+            methods: {
+                toggleTheme() {
+                    this.theme = this.theme === 'light' ? 'dark' : 'light';
+                    localStorage.setItem('theme', this.theme);
+                    this.$vuetify.theme.dark = this.theme === 'dark';
+                },
+                async loadConfig() {
+                    try {
+                        const response = await fetch('/api/el/config');
+                        const data = await response.json();
+                        if (data.success) {
+                            this.config = data.config;
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        this.showSnackbar('Error al cargar la configuración', 'error');
+                    }
+                },
+                async loadVoices() {
+                    try {
+                        const response = await fetch('/api/el/voices');
+                        const data = await response.json();
+                        if (data.success) {
+                            this.voices = data.voices;
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        this.showSnackbar('Error al cargar las voces', 'error');
+                    }
+                },
+                async saveConfig() {
+                    this.saving = true;
+                    try {
+                        const response = await fetch('/api/el/config', {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                defaultSettings: this.config.defaultSettings
+                            })
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Error al guardar la configuración');
+                        }
+                        
+                        this.showSnackbar('Configuración guardada exitosamente');
+                    } catch (error) {
+                        console.error('Error:', error);
+                        this.showSnackbar('Error al guardar la configuración', 'error');
+                    }
+                    this.saving = false;
+                },
+                async updateApiKey() {
+                    if (!this.apiKey) {
+                        this.showSnackbar('La API Key es requerida', 'error');
+                        return;
+                    }
+                    
+                    this.savingApiKey = true;
+                    try {
+                        const response = await fetch('/api/el/config/apikey', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                apiKey: this.apiKey
+                            })
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Error al actualizar la API Key');
+                        }
+                        
+                        this.showSnackbar('API Key actualizada exitosamente');
+                        this.apiKey = ''; // Limpiar el campo por seguridad
+                        await this.loadVoices(); // Recargar voces con la nueva API key
+                    } catch (error) {
+                        console.error('Error:', error);
+                        this.showSnackbar('Error al actualizar la API Key', 'error');
+                    }
+                    this.savingApiKey = false;
+                },
+                async testVoice() {
+                    if (!this.testText) {
+                        this.showSnackbar('Ingrese texto para la prueba', 'error');
+                        return;
+                    }
+
+                    this.testing = true;
+                    try {
+                        const response = await fetch('/api/el/test', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                text: this.testText,
+                                ...this.config.defaultSettings
+                            })
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Error al generar audio');
+                        }
+
+                        const audioBlob = await response.blob();
+                        const audioUrl = URL.createObjectURL(audioBlob);
+                        const audio = new Audio(audioUrl);
+                        audio.play();
+                    } catch (error) {
+                        console.error('Error:', error);
+                        this.showSnackbar('Error al probar la voz', 'error');
+                    }
+                    this.testing = false;
+                },
+                showSnackbar(text, color = 'success') {
+                    this.snackbar.text = text;
+                    this.snackbar.color = color;
+                    this.snackbar.show = true;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
