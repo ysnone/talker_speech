@@ -1,12 +1,16 @@
-const { execSync } = require('child_process');
+const { exec } = require('child_process');
+const util = require('util');
+const execAsync = util.promisify(exec);
+const fs = require('fs').promises;
+const path = require('path');
+const os = require('os');
+const sound = require('sound-play');
 
 class AudioDeviceService {
-    static getAudioDevices() {
+    static async getAudioDevices() {
         try {
-            // Usando PowerShell para obtener los dispositivos de audio de reproducción
-            const command = `powershell -Command "Get-CimInstance Win32_SoundDevice | Select-Object Name, DeviceID, Status | Where-Object { $_.Status -eq 'OK' } | ConvertTo-Json"`;
-            const output = execSync(command).toString();
-            const devices = JSON.parse(output);
+            const { stdout } = await execAsync('powershell -Command "Get-AudioDevice -Playback | Select-Object Name, ID, Default | ConvertTo-Json"');
+            const devices = JSON.parse(stdout);
             return Array.isArray(devices) ? devices : [devices];
         } catch (error) {
             console.error('Error al obtener dispositivos de audio:', error);
@@ -14,32 +18,45 @@ class AudioDeviceService {
         }
     }
 
-    static getDefaultDevice() {
+    static async getDefaultDevice() {
         try {
-            // Usando un método más simple para obtener el dispositivo predeterminado
-            const command = `powershell -Command "Get-CimInstance Win32_SoundDevice | Where-Object { $_.Status -eq 'OK' } | Select-Object -First 1 | ConvertTo-Json"`;
-            const output = execSync(command).toString();
-            if (!output.trim()) {
-                return null;
-            }
-            return JSON.parse(output);
+            const { stdout } = await execAsync('powershell -Command "Get-AudioDevice -Playback | Where-Object Default -eq $true | Select-Object Name, ID, Default | ConvertTo-Json"');
+            return JSON.parse(stdout);
         } catch (error) {
-            console.error('Error al obtener dispositivo predeterminado:', error);
+            console.error('Error al obtener dispositivo por defecto:', error);
             return null;
         }
     }
 
-    static async setVolume(level) {
+    static async setDefaultDevice(deviceId) {
         try {
-            // Usando un cmdlet más compatible para ajustar el volumen
-            const volumeLevel = Math.floor(level * 100);
-            const command = `powershell -Command "$volume = Get-WmiObject -Class MSFT_AudioDevice -Namespace root/standardcimv2; $volume.SetVolume(${volumeLevel})"`;
-            execSync(command);
+            await execAsync(`powershell -Command "Set-AudioDevice -ID '${deviceId}'"`, { windowsHide: true });
             return true;
         } catch (error) {
-            console.error('Error al establecer volumen:', error);
+            console.error('Error al establecer dispositivo por defecto:', error);
             return false;
         }
+    }
+
+    static async playAudio(audioBuffer) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                // Guardar el buffer en un archivo temporal
+                const tempDir = os.tmpdir();
+                const tempFile = path.join(tempDir, `elevenlabs_${Date.now()}.mp3`);
+                await fs.writeFile(tempFile, audioBuffer);
+
+                // Reproducir el audio
+                await sound.play(tempFile);
+
+                // Eliminar el archivo temporal
+                await fs.unlink(tempFile);
+                resolve(true);
+            } catch (error) {
+                console.error('Error al reproducir audio:', error);
+                reject(error);
+            }
+        });
     }
 }
 

@@ -1,7 +1,11 @@
 const ElConfig = require('../models/elConfig');
 const RequestLog = require('../models/requestLog');
 const Execution = require('../models/execution');
+const AudioDeviceService = require('../services/audioDeviceService');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const fs = require('fs').promises;
+const path = require('path');
+const os = require('os');
 
 class ElController {
     static async getConfig(req, res) {
@@ -232,7 +236,8 @@ class ElController {
             similarityBoost,
             style,
             speakerBoost,
-            optimizeStreamingLatency
+            optimizeStreamingLatency,
+            offDevice
         } = req.body;
 
         let execution;
@@ -266,7 +271,7 @@ class ElController {
                 ipAddress: req.headers['x-real-ip'] || req.headers['x-forwarded-for'] || req.ip,
                 textLength: text.length,
                 text: text,
-                audioDevice: audioDevice || 'default',
+                audioDevice: audioDevice || config.audioDevice || 'default',
                 elevenlabs: {
                     voiceId: settings.voiceId,
                     model: settings.model
@@ -302,28 +307,13 @@ class ElController {
 
             // Obtener información de la respuesta
             const audioBuffer = Buffer.from(await response.arrayBuffer());
-
-            // Debug: Imprimir todos los headers
-            console.log('Headers de ElevenLabs:');
-            for (const [key, value] of response.headers.entries()) {
-                console.log(`${key}: ${value}`);
-            }
-
-            // Obtener headers de la respuesta
             const headers = response.headers;
             const characterBilling = parseInt(headers.get('character-cost') || '0');
             const latencyMs = parseInt(headers.get('tts-latency-ms') || '0');
             const audioDuration = latencyMs / 1000; // Convertir a segundos
-            
-            console.log('Valores extraídos:');
-            console.log('Character Cost:', characterBilling);
-            console.log('TTS Latency (ms):', latencyMs);
-            console.log('Audio Duration (s):', audioDuration);
 
-            const costPerCharacter = 0.00003; // $0.00003 por carácter según documentación de ElevenLabs
+            const costPerCharacter = 0.00003;
             const cost = characterBilling * costPerCharacter;
-
-            console.log('Costo calculado:', cost);
 
             // Actualizar registro de ejecución
             execution.elevenlabs.audioDuration = audioDuration;
@@ -331,25 +321,28 @@ class ElController {
             execution.elevenlabs.cost = cost;
             execution.success = true;
             execution.processingTime = Date.now() - startTime;
-
-            console.log('Datos a guardar:', {
-                audioDuration,
-                characterBilling,
-                cost,
-                latencyMs
-            });
-
             await execution.save();
+
+            // Si no se especifica offDevice=true, reproducir el audio
+            if (!offDevice) {
+                try {
+                    await AudioDeviceService.playAudio(audioBuffer);
+                } catch (error) {
+                    console.error('Error al reproducir audio:', error);
+                    // Continuamos aunque falle la reproducción
+                }
+            }
 
             // Enviar respuesta
             res.set({
                 'Content-Type': 'audio/mpeg',
                 'Content-Length': audioBuffer.length,
-                'X-Audio-Device': audioDevice || 'default',
+                'X-Audio-Device': audioDevice || config.audioDevice || 'default',
                 'X-Audio-Duration': audioDuration,
                 'X-Character-Count': characterBilling,
                 'X-Cost': cost.toFixed(6),
-                'X-Latency-Ms': latencyMs
+                'X-Latency-Ms': latencyMs,
+                'X-Played-On-Device': offDevice ? 'false' : 'true'
             });
             res.send(audioBuffer);
 
