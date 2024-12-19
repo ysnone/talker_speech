@@ -9,22 +9,7 @@
 <body>
     <div id="app">
         <v-app>
-            <v-app-bar app color="primary" dark>
-                <v-toolbar-title>Talker</v-toolbar-title>
-                <v-spacer></v-spacer>
-                <v-btn text href="/config.html">
-                    Windows TTS
-                </v-btn>
-                <v-btn text href="/el-config.html">
-                    ElevenLabs
-                </v-btn>
-                <v-btn text href="/api-docs">
-                    API Docs
-                </v-btn>
-                <v-btn icon @click="toggleTheme">
-                    <v-icon>{{ theme === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
-                </v-btn>
-            </v-app-bar>
+            <app-header current-page="elevenlabs"></app-header>
 
             <v-main>
                 <v-container>
@@ -51,6 +36,16 @@
                                 </v-btn>
 
                                 <v-divider class="my-4"></v-divider>
+
+                                <v-select
+                                    v-model="config.audioDevice"
+                                    :items="audioDevices"
+                                    item-text="name"
+                                    item-value="id"
+                                    label="Dispositivo de Audio"
+                                    outlined
+                                    @click="loadAudioDevices"
+                                ></v-select>
 
                                 <v-select
                                     v-model="config.defaultSettings.voiceId"
@@ -152,6 +147,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+    <script src="/components/header.js"></script>
     <script>
         new Vue({
             el: '#app',
@@ -169,6 +165,7 @@
                 apiKey: '',
                 showApiKey: false,
                 voices: [],
+                audioDevices: [],
                 models: [
                     'eleven_monolingual_v1',
                     'eleven_multilingual_v1'
@@ -181,6 +178,7 @@
                     { text: 'Nivel 4', value: 4 }
                 ],
                 config: {
+                    audioDevice: 'default',
                     defaultSettings: {
                         voiceId: '',
                         model: 'eleven_multilingual_v1',
@@ -200,12 +198,20 @@
             mounted() {
                 this.loadConfig();
                 this.loadVoices();
+                this.loadAudioDevices();
             },
             methods: {
-                toggleTheme() {
-                    this.theme = this.theme === 'light' ? 'dark' : 'light';
-                    localStorage.setItem('theme', this.theme);
-                    this.$vuetify.theme.dark = this.theme === 'dark';
+                async loadAudioDevices() {
+                    try {
+                        const response = await fetch('/api/config/audio-devices');
+                        const data = await response.json();
+                        if (data.success) {
+                            this.audioDevices = data.devices;
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        this.showSnackbar('Error al cargar dispositivos de audio', 'error');
+                    }
                 },
                 async loadConfig() {
                     try {
@@ -240,6 +246,7 @@
                                 'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({
+                                audioDevice: this.config.audioDevice,
                                 defaultSettings: this.config.defaultSettings
                             })
                         });
@@ -301,6 +308,7 @@
                             },
                             body: JSON.stringify({
                                 text: this.testText,
+                                audioDevice: this.config.audioDevice,
                                 ...this.config.defaultSettings
                             })
                         });

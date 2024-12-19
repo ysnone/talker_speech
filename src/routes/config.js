@@ -16,6 +16,18 @@ router.get('/', ConfigController.getConfig);
 
 /**
  * @swagger
+ * /api/config/audio-devices:
+ *   get:
+ *     summary: Obtiene la lista de dispositivos de audio
+ *     tags: [Configuración]
+ *     responses:
+ *       200:
+ *         description: Lista de dispositivos de audio disponibles
+ */
+router.get('/audio-devices', ConfigController.getAudioDevices);
+
+/**
+ * @swagger
  * /api/config:
  *   put:
  *     summary: Actualiza la configuración
@@ -29,26 +41,10 @@ router.get('/', ConfigController.getConfig);
  *             properties:
  *               audio:
  *                 type: object
- *               api:
- *                 type: object
- *               tts:
- *                 type: object
  *     responses:
  *       200:
  *         description: Configuración actualizada exitosamente
  */
 router.put('/', ConfigController.updateConfig);
-
-/**
- * @swagger
- * /api/config/audio-devices:
- *   get:
- *     summary: Obtiene los dispositivos de audio disponibles
- *     tags: [Configuración]
- *     responses:
- *       200:
- *         description: Lista de dispositivos de audio
- */
-router.get('/audio-devices', ConfigController.getAudioDevices);
 
 module.exports = router;

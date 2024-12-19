@@ -5,6 +5,11 @@ const elConfigSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    audioDevice: {
+        type: String,
+        required: true,
+        default: 'default'
+    },
     defaultSettings: {
         voiceId: {
             type: String,

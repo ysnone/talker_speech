@@ -7,7 +7,7 @@ class ConfigController {
             let config = await Config.findOne();
             if (!config) {
                 config = await Config.create({
-                    audio: { volume: 1.0 },
+                    audioDevice: 'default',
                     tts: { 
                         defaultLanguage: 'es',
                         speed: 1.0,
@@ -17,67 +17,65 @@ class ConfigController {
                 });
             }
             
-            // Obtener dispositivos de audio disponibles
-            const audioDevices = await AudioDeviceService.getAudioDevices();
-            const currentDevice = await AudioDeviceService.getDefaultDevice();
-
-            if (currentDevice && !config.audio.defaultDevice) {
-                config.audio.defaultDevice = currentDevice.DeviceID;
-                await config.save();
-            }
-            
             res.json({
-                config,
-                audioDevices,
-                currentDevice
+                success: true,
+                config
             });
         } catch (error) {
-            console.error('Error en getConfig:', error);
-            res.status(500).json({ error: error.message });
-        }
-    }
-
-    static async updateConfig(req, res) {
-        try {
-            const { audio, api, tts } = req.body;
-            
-            let config = await Config.findOne();
-            if (!config) {
-                config = new Config();
-            }
-
-            // Actualizar configuración
-            if (audio) {
-                config.audio = { ...config.audio, ...audio };
-            }
-            if (api) {
-                // Asegurarse de que allowedIPs sea un array
-                if (api.allowedIPs && !Array.isArray(api.allowedIPs)) {
-                    api.allowedIPs = [api.allowedIPs];
-                }
-                config.api = { ...config.api, ...api };
-            }
-            if (tts) {
-                config.tts = { ...config.tts, ...tts };
-            }
-
-            config.updatedAt = new Date();
-            await config.save();
-
-            res.json({ message: 'Configuración actualizada', config });
-        } catch (error) {
-            console.error('Error en updateConfig:', error);
-            res.status(500).json({ error: error.message });
+            console.error('Error al obtener configuración:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener la configuración'
+            });
         }
     }
 
     static async getAudioDevices(req, res) {
         try {
             const devices = await AudioDeviceService.getAudioDevices();
-            res.json(devices);
+            res.json({
+                success: true,
+                devices: devices.map(device => ({
+                    id: device.DeviceID,
+                    name: device.Name
+                }))
+            });
         } catch (error) {
-            console.error('Error en getAudioDevices:', error);
-            res.status(500).json({ error: error.message });
+            console.error('Error al obtener dispositivos de audio:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener los dispositivos de audio'
+            });
+        }
+    }
+
+    static async updateConfig(req, res) {
+        try {
+            let config = await Config.findOne();
+            if (!config) {
+                config = new Config();
+            }
+
+            // Actualizar solo los campos permitidos
+            if (req.body.audioDevice !== undefined) {
+                config.audioDevice = req.body.audioDevice;
+            }
+            if (req.body.tts !== undefined) {
+                config.tts = { ...config.tts, ...req.body.tts };
+            }
+
+            await config.save();
+            res.json({
+                success: true,
+                message: 'Configuración actualizada exitosamente',
+                config
+            });
+        } catch (error) {
+            console.error('Error al actualizar configuración:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al actualizar la configuración'
+            });
         }
     }
 }

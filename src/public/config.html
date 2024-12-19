@@ -1,218 +1,78 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Talker - Configuración</title>
-    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@5.9.55/css/materialdesignicons.min.css" rel="stylesheet">
+    <title>Windows TTS Config - Talker</title>
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@5.x/css/materialdesignicons.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
 </head>
 <body>
     <div id="app">
-        <v-app :theme="theme">
-            <!-- Header -->
-            <v-app-bar app color="primary" dark>
-                <v-toolbar-title class="text-h5">
-                    <v-icon large class="mr-2">mdi-text-to-speech</v-icon>
-                    Talker
-                </v-toolbar-title>
-                <v-spacer></v-spacer>
-                <v-btn icon @click="toggleTheme">
-                    <v-icon>{{ theme === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
-                </v-btn>
-            </v-app-bar>
+        <v-app>
+            <app-header current-page="windows"></app-header>
 
             <v-main>
                 <v-container>
-                    <!-- Formulario de Prueba -->
-                    <v-card class="mb-6">
-                        <v-card-title>
-                            Probar Conversión de Texto a Voz
-                        </v-card-title>
+                    <v-card class="mx-auto" max-width="800">
+                        <v-card-title>Configuración de Windows TTS</v-card-title>
                         <v-card-text>
-                            <v-form @submit.prevent="testTextToSpeech">
-                                <v-textarea
-                                    v-model="testText"
-                                    label="Texto a reproducir"
-                                    rows="3"
+                            <v-form @submit.prevent="saveConfig">
+                                <v-select
+                                    v-model="config.audioDevice"
+                                    :items="audioDevices"
+                                    item-text="name"
+                                    item-value="id"
+                                    label="Dispositivo de Audio"
                                     outlined
-                                ></v-textarea>
-                                <v-row>
-                                    <v-col cols="12" sm="6">
-                                        <v-select
-                                            v-model="selectedVoice"
-                                            :items="voices"
-                                            item-text="Name"
-                                            item-value="Name"
-                                            label="Voz"
-                                            outlined
-                                        ></v-select>
-                                    </v-col>
-                                    <v-col cols="12" sm="6">
-                                        <v-slider
-                                            v-model="testConfig.pitch"
-                                            label="Tono"
-                                            min="-10"
-                                            max="10"
-                                            thumb-label
-                                            ticks
-                                        ></v-slider>
-                                    </v-col>
-                                </v-row>
-                                <v-row>
-                                    <v-col cols="12" sm="6">
-                                        <v-slider
-                                            v-model="testConfig.speed"
-                                            label="Velocidad"
-                                            min="0.5"
-                                            max="2"
-                                            step="0.1"
-                                            thumb-label
-                                            ticks
-                                        ></v-slider>
-                                    </v-col>
-                                    <v-col cols="12" sm="6">
-                                        <v-slider
-                                            v-model="testConfig.volume"
-                                            label="Volumen"
-                                            min="0"
-                                            max="100"
-                                            thumb-label
-                                            ticks
-                                        ></v-slider>
-                                    </v-col>
-                                </v-row>
-                                <v-row>
-                                    <v-col>
-                                        <v-btn
-                                            color="primary"
-                                            type="submit"
-                                            :loading="testing"
-                                            :disabled="!testText"
-                                            class="mr-4"
-                                        >
-                                            <v-icon left>mdi-play</v-icon>
-                                            Reproducir
-                                        </v-btn>
-                                        <v-btn
-                                            color="error"
-                                            @click="stopTTS"
-                                            :disabled="!testing"
-                                        >
-                                            <v-icon left>mdi-stop</v-icon>
-                                            Detener
-                                        </v-btn>
-                                    </v-col>
-                                </v-row>
+                                    @click="loadAudioDevices"
+                                ></v-select>
+
+                                <v-btn
+                                    color="primary"
+                                    type="submit"
+                                    :loading="saving"
+                                    class="mt-4"
+                                >
+                                    Guardar Configuración
+                                </v-btn>
                             </v-form>
+
+                            <v-divider class="my-4"></v-divider>
+
+                            <v-card-title>Prueba de Voz</v-card-title>
+                            <v-textarea
+                                v-model="testText"
+                                label="Texto para prueba"
+                                outlined
+                            ></v-textarea>
+
+                            <v-btn
+                                color="success"
+                                @click="testVoice"
+                                :loading="testing"
+                                class="mb-4"
+                            >
+                                Probar Voz
+                            </v-btn>
                         </v-card-text>
                     </v-card>
-
-                    <!-- Panel de Configuración -->
-                    <v-card>
-                        <v-card-title>
-                            Configuración del Sistema
-                            <v-spacer></v-spacer>
-                            <v-btn color="primary" @click="saveConfig" :loading="saving">
-                                Guardar Cambios
-                            </v-btn>
-                        </v-card-title>
-                        <v-card-text>
-                            <v-tabs v-model="tab">
-                                <v-tab>Audio</v-tab>
-                                <v-tab>API</v-tab>
-                                <v-tab>TTS</v-tab>
-                            </v-tabs>
-
-                            <v-tabs-items v-model="tab">
-                                <!-- Configuración de Audio -->
-                                <v-tab-item>
-                                    <v-card flat>
-                                        <v-card-text>
-                                            <v-select
-                                                v-model="config.audio.defaultDevice"
-                                                :items="audioDevices"
-                                                item-text="Name"
-                                                item-value="DeviceID"
-                                                label="Dispositivo de Audio Predeterminado"
-                                            ></v-select>
-                                            <v-slider
-                                                v-model="config.audio.volume"
-                                                label="Volumen"
-                                                min="0"
-                                                max="1"
-                                                step="0.1"
-                                                thumb-label
-                                            ></v-slider>
-                                        </v-card-text>
-                                    </v-card>
-                                </v-tab-item>
-
-                                <!-- Configuración de API -->
-                                <v-tab-item>
-                                    <v-card flat>
-                                        <v-card-text>
-                                            <v-combobox
-                                                v-model="config.api.allowedIPs"
-                                                label="IPs Permitidas"
-                                                multiple
-                                                chips
-                                                hint="Presiona Enter para añadir una IP"
-                                            ></v-combobox>
-                                            <v-text-field
-                                                v-model="config.api.rateLimit.max"
-                                                label="Límite de Peticiones"
-                                                type="number"
-                                            ></v-text-field>
-                                            <v-text-field
-                                                v-model="config.api.rateLimit.windowMs"
-                                                label="Ventana de Tiempo (ms)"
-                                                type="number"
-                                            ></v-text-field>
-                                        </v-card-text>
-                                    </v-card>
-                                </v-tab-item>
-
-                                <!-- Configuración de TTS -->
-                                <v-tab-item>
-                                    <v-card flat>
-                                        <v-card-text>
-                                            <v-select
-                                                v-model="config.tts.defaultLanguage"
-                                                :items="languages"
-                                                label="Idioma Predeterminado"
-                                            ></v-select>
-                                            <v-slider
-                                                v-model="config.tts.speed"
-                                                label="Velocidad de Reproducción"
-                                                min="0.5"
-                                                max="2"
-                                                step="0.1"
-                                                thumb-label
-                                            ></v-slider>
-                                        </v-card-text>
-                                    </v-card>
-                                </v-tab-item>
-                            </v-tabs-items>
-                        </v-card-text>
-                    </v-card>
-
-                    <!-- Snackbar para notificaciones -->
-                    <v-snackbar v-model="snackbar.show" :color="snackbar.color">
-                        {{ snackbar.text }}
-                        <template v-slot:action="{ attrs }">
-                            <v-btn text v-bind="attrs" @click="snackbar.show = false">
-                                Cerrar
-                            </v-btn>
-                        </template>
-                    </v-snackbar>
                 </v-container>
             </v-main>
+
+            <v-snackbar v-model="snackbar.show" :color="snackbar.color">
+                {{ snackbar.text }}
+                <template v-slot:action="{ attrs }">
+                    <v-btn text v-bind="attrs" @click="snackbar.show = false">
+                        Cerrar
+                    </v-btn>
+                </template>
+            </v-snackbar>
         </v-app>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+    <script src="/components/header.js"></script>
     <script>
         new Vue({
             el: '#app',
@@ -222,42 +82,13 @@
                 }
             }),
             data: () => ({
-                theme: localStorage.getItem('theme') || 'light',
-                tab: null,
                 saving: false,
                 testing: false,
                 testText: '',
-                voices: [],
-                selectedVoice: '',
-                testConfig: {
-                    speed: 1.0,
-                    volume: 100,
-                    pitch: 0
-                },
-                config: {
-                    audio: {
-                        defaultDevice: '',
-                        volume: 1.0
-                    },
-                    api: {
-                        allowedIPs: [],
-                        rateLimit: {
-                            windowMs: 900000,
-                            max: 100
-                        }
-                    },
-                    tts: {
-                        defaultLanguage: 'es',
-                        speed: 1.0
-                    }
-                },
                 audioDevices: [],
-                languages: [
-                    { text: 'Español', value: 'es' },
-                    { text: 'English', value: 'en' },
-                    { text: 'Français', value: 'fr' },
-                    { text: 'Deutsch', value: 'de' }
-                ],
+                config: {
+                    audioDevice: ''
+                },
                 snackbar: {
                     show: false,
                     text: '',
@@ -266,31 +97,30 @@
             }),
             mounted() {
                 this.loadConfig();
+                this.loadAudioDevices();
             },
             methods: {
-                toggleTheme() {
-                    this.theme = this.theme === 'light' ? 'dark' : 'light';
-                    localStorage.setItem('theme', this.theme);
-                    this.$vuetify.theme.dark = this.theme === 'dark';
+                async loadAudioDevices() {
+                    try {
+                        const response = await fetch('/api/config/audio-devices');
+                        const data = await response.json();
+                        if (data.success) {
+                            this.audioDevices = data.devices;
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        this.showSnackbar('Error al cargar dispositivos de audio', 'error');
+                    }
                 },
                 async loadConfig() {
                     try {
-                        const [configResponse, voicesResponse] = await Promise.all([
-                            fetch('/api/config'),
-                            fetch('/api/tts/voices')
-                        ]);
-                        
-                        const configData = await configResponse.json();
-                        this.config = configData.config;
-                        this.audioDevices = configData.audioDevices;
-
-                        const voicesData = await voicesResponse.json();
-                        this.voices = voicesData;
-                        if (voicesData.length > 0) {
-                            this.selectedVoice = voicesData[0].Name;
+                        const response = await fetch('/api/config');
+                        const data = await response.json();
+                        if (data.success) {
+                            this.config = data.config;
                         }
                     } catch (error) {
-                        console.error('Error al cargar datos:', error);
+                        console.error('Error:', error);
                         this.showSnackbar('Error al cargar la configuración', 'error');
                     }
                 },
@@ -304,17 +134,24 @@
                             },
                             body: JSON.stringify(this.config)
                         });
-                        const data = await response.json();
-                        this.showSnackbar('Configuración guardada exitosamente', 'success');
+                        
+                        if (!response.ok) {
+                            throw new Error('Error al guardar la configuración');
+                        }
+                        
+                        this.showSnackbar('Configuración guardada exitosamente');
                     } catch (error) {
-                        console.error('Error al guardar la configuración:', error);
+                        console.error('Error:', error);
                         this.showSnackbar('Error al guardar la configuración', 'error');
                     }
                     this.saving = false;
                 },
-                async testTextToSpeech() {
-                    if (!this.testText) return;
-                    
+                async testVoice() {
+                    if (!this.testText) {
+                        this.showSnackbar('Ingrese texto para la prueba', 'error');
+                        return;
+                    }
+
                     this.testing = true;
                     try {
                         const response = await fetch('/api/tts/test', {
@@ -324,70 +161,20 @@
                             },
                             body: JSON.stringify({
                                 text: this.testText,
-                                language: this.config.tts.defaultLanguage,
-                                speed: this.testConfig.speed,
-                                voice: this.selectedVoice,
-                                volume: this.testConfig.volume,
-                                pitch: this.testConfig.pitch
+                                audioDevice: this.config.audioDevice
                             })
                         });
-                        
+
                         if (!response.ok) {
-                            throw new Error('Error al procesar el texto');
+                            throw new Error('Error al generar audio');
                         }
 
-                        const data = await response.json();
-                        this.showSnackbar('Reproduciendo texto...', 'info');
-                        
-                        // Monitorear el estado
-                        this.monitorTTSStatus(data.requestId);
+                        this.showSnackbar('Audio generado exitosamente');
                     } catch (error) {
                         console.error('Error:', error);
-                        this.showSnackbar('Error al reproducir el texto', 'error');
-                        this.testing = false;
+                        this.showSnackbar('Error al probar la voz', 'error');
                     }
-                },
-
-                async monitorTTSStatus(requestId) {
-                    try {
-                        const response = await fetch(`/api/tts/status/${requestId}`);
-                        if (!response.ok) {
-                            throw new Error('Error al obtener estado');
-                        }
-
-                        const data = await response.json();
-                        if (data.status === 'completed') {
-                            this.testing = false;
-                            this.showSnackbar('Texto reproducido exitosamente', 'success');
-                        } else if (data.status === 'error') {
-                            this.testing = false;
-                            this.showSnackbar('Error al reproducir el texto', 'error');
-                        } else {
-                            // Continuar monitoreando
-                            setTimeout(() => this.monitorTTSStatus(requestId), 500);
-                        }
-                    } catch (error) {
-                        console.error('Error al monitorear estado:', error);
-                        this.testing = false;
-                        this.showSnackbar('Error al monitorear el estado', 'error');
-                    }
-                },
-                async stopTTS() {
-                    try {
-                        const response = await fetch('/api/tts/stop', {
-                            method: 'POST'
-                        });
-                        
-                        if (!response.ok) {
-                            throw new Error('Error al detener la reproducción');
-                        }
-                        
-                        this.testing = false;
-                        this.showSnackbar('Reproducción detenida', 'info');
-                    } catch (error) {
-                        console.error('Error:', error);
-                        this.showSnackbar('Error al detener la reproducción', 'error');
-                    }
+                    this.testing = false;
                 },
                 showSnackbar(text, color = 'success') {
                     this.snackbar.text = text;

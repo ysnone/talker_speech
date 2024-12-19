@@ -10,7 +10,7 @@ const ElController = require('../controllers/elController');
  *     tags: [ElevenLabs]
  *     responses:
  *       200:
- *         description: Configuración obtenida exitosamente
+ *         description: Configuración actual de ElevenLabs
  */
 router.get('/config', ElController.getConfig);
 
@@ -26,32 +26,6 @@ router.get('/config', ElController.getConfig);
  *         application/json:
  *           schema:
  *             type: object
- *             properties:
- *               defaultSettings:
- *                 type: object
- *                 properties:
- *                   voiceId:
- *                     type: string
- *                   model:
- *                     type: string
- *                     enum: [eleven_monolingual_v1, eleven_multilingual_v1]
- *                   stability:
- *                     type: number
- *                     minimum: 0
- *                     maximum: 1
- *                   similarityBoost:
- *                     type: number
- *                     minimum: 0
- *                     maximum: 1
- *                   style:
- *                     type: number
- *                     minimum: 0
- *                     maximum: 1
- *                   speakerBoost:
- *                     type: boolean
- *                   optimizeStreamingLatency:
- *                     type: number
- *                     enum: [0, 1, 2, 3, 4]
  *     responses:
  *       200:
  *         description: Configuración actualizada exitosamente
@@ -83,11 +57,11 @@ router.post('/config/apikey', ElController.updateApiKey);
  * @swagger
  * /api/el/voices:
  *   get:
- *     summary: Obtiene la lista de voces disponibles
+ *     summary: Obtiene las voces disponibles en ElevenLabs
  *     tags: [ElevenLabs]
  *     responses:
  *       200:
- *         description: Lista de voces obtenida exitosamente
+ *         description: Lista de voces disponibles
  */
 router.get('/voices', ElController.getVoices);
 
@@ -95,7 +69,7 @@ router.get('/voices', ElController.getVoices);
  * @swagger
  * /api/el/test:
  *   post:
- *     summary: Prueba la conversión de texto a voz
+ *     summary: Prueba la generación de voz
  *     tags: [ElevenLabs]
  *     requestBody:
  *       required: true
@@ -108,35 +82,57 @@ router.get('/voices', ElController.getVoices);
  *                 type: string
  *               voiceId:
  *                 type: string
- *               model:
- *                 type: string
- *                 enum: [eleven_monolingual_v1, eleven_multilingual_v1]
- *               stability:
- *                 type: number
- *                 minimum: 0
- *                 maximum: 1
- *               similarityBoost:
- *                 type: number
- *                 minimum: 0
- *                 maximum: 1
- *               style:
- *                 type: number
- *                 minimum: 0
- *                 maximum: 1
- *               speakerBoost:
- *                 type: boolean
- *               optimizeStreamingLatency:
- *                 type: number
- *                 enum: [0, 1, 2, 3, 4]
  *     responses:
  *       200:
  *         description: Audio generado exitosamente
- *         content:
- *           audio/mpeg:
- *             schema:
- *               type: string
- *               format: binary
  */
 router.post('/test', ElController.testTTS);
+
+/**
+ * @swagger
+ * /api/el/speak:
+ *   post:
+ *     summary: Genera y reproduce audio desde texto
+ *     tags: [ElevenLabs]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               text:
+ *                 type: string
+ *                 description: Texto a convertir en voz
+ *               voiceId:
+ *                 type: string
+ *                 description: ID de la voz a usar (opcional)
+ *               model:
+ *                 type: string
+ *                 description: Modelo a usar (opcional)
+ *               stability:
+ *                 type: number
+ *                 description: Estabilidad de la voz (0-1) (opcional)
+ *               similarityBoost:
+ *                 type: number
+ *                 description: Mejora de similitud (0-1) (opcional)
+ *               style:
+ *                 type: number
+ *                 description: Estilo de la voz (0-1) (opcional)
+ *               speakerBoost:
+ *                 type: boolean
+ *                 description: Mejora de hablante (opcional)
+ *               audioDevice:
+ *                 type: string
+ *                 description: ID del dispositivo de audio (opcional)
+ *     responses:
+ *       200:
+ *         description: Audio generado y reproducido exitosamente
+ *       400:
+ *         description: Error en los parámetros de la solicitud
+ *       500:
+ *         description: Error del servidor
+ */
+router.post('/speak', ElController.speak);
 
 module.exports = router;
